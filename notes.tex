@@ -1,8 +1,6 @@
 \documentclass[twocolumn,draft]{article}
+
 \usepackage{savetrees}
-% a more conservative option:
-% \documentclass[]{article}
-% \usepackage{fullpage}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -13,25 +11,216 @@
 \usepackage{amsmath}
 \usepackage{amsthm}
 
-\usepackage{todonotes}
-\usepackage{graphicx}
-\usepackage{showlabels}
-
 \usepackage[english]{babel}
-\usepackage{blindtext}
-% \Blindtext to use.
 
 \RequirePackage[l2tabu, orthodox]{nag}
 \usepackage[all,warning]{onlyamsmath}
 
 \usepackage{hyperref}
 
-\title{Article Title}
-\author{Danilo Horta}
+\usepackage{cuted}
+
+\usepackage[style=numeric-comp]{biblatex}
+\bibliography{notes}
+
+\title{Genome-wide scan for linear mixed models}
+\author{Danilo Horta and Francesco P. Casale}
 \date{\today}
+
+\include{definitions}
 
 \begin{document}
 	\maketitle
-	
-	
+
+	\section{Least squares}
+
+	We apply the method of least squares to estimate the fixed-effect sizes.
+
+	\subsection{Single block}
+
+	Let
+	\begin{equation}\label{eq:lmm}
+		  \bfy \sim \normal{\rmF\bfalpha}{\rmK}
+	\end{equation}
+	be the marginal likelihood of a LMM with a single covariate block $\rmF$.
+	The maximum likelihood estimation of the fixed effects is
+	\begin{equation*}
+			\hat\bfalpha = \pinv{(\trans{\rmF}\pinv{\rmK}\rmF)}
+				               \trans{\rmF}\pinv{\rmK}\bfy.
+	\end{equation*}
+	In practice, the method of least squares can be used to solve the above
+	equation without explicitly finding pseudoinverses.
+
+	\subsection{Double block}
+
+	Let
+	\begin{equation*}
+		  \bfy \sim \normal{\rmF\bfalpha + \rmG\bfbeta}{\rmK}
+	\end{equation*}
+	be the marginal likelihood of a LMM with two covariate blocks $\rmF$ and
+	$\rmG$.
+	We want to solve
+	\begin{equation*}
+			\begin{bmatrix}
+						\hat\bfalpha \\
+								\hat\bfbeta
+									\end{bmatrix} = \pinv{(\trans{\rmX}\rmX)}\trans{\rmX}\pinv{\rmK^{\haf}}\bfy
+	\end{equation*}
+	for
+	\begin{equation*}
+		\rmL = \pinv{\rmK^{\haf}}\rmF,~~ \rmR = \pinv{\rmK^{\haf}}\rmG\texto{and}
+			\rmX =
+					\begin{bmatrix}
+									\rmL & \rmR
+											\end{bmatrix}.
+	\end{equation*}
+
+	We have
+
+	\begin{strip}
+			\begin{equation*}
+						\pinv{(\trans{\rmX}\rmX)} =
+								\begin{bmatrix}
+												\pinv{(\trans{\rmL}\rmL)} + \pinv{(\trans{\rmL}\rmL)} (\trans{\rmL}\rmR)
+																\pinv{\rmW} \trans{(\trans{\rmL}\rmR)} \pinv{(\trans{\rmL}\rmL)}
+																				& - \pinv{(\trans{\rmL}\rmL)} (\trans{\rmL}\rmR)
+																								\pinv{\rmW} \\
+																											- \pinv{\rmW} \trans{(\trans{\rmL}\rmR)}
+																														\pinv{(\trans{\rmL}\rmL)} & \pinv{\rmW}
+																																\end{bmatrix},
+																																	\end{equation*}
+	\end{strip}
+	from Eq. 3 of~\cite{rohde1965generalized}, where
+	$\rmW = \trans{\rmR}\rmR - \trans{\rmR}\rmL\pinv{(\trans{\rmL}\rmL)}
+	\trans{\rmL}\rmR$.
+
+	Defining $\rmA = \trans{\rmL}\rmL$ and $\rmB = \trans{\rmL}\rmR$ leads us to
+	\begin{equation*}
+			\pinv{(\trans{\rmX}\rmX)}\trans{\rmX} =
+					\begin{bmatrix}
+									\pinv{\rmA}\trans{\rmL}
+												+ \pinv{\rmA}\rmB\pinv{\rmW}\trans{\rmB}\pinv{\rmA}\trans{\rmL}
+															-\pinv{\rmA}\rmB\pinv{\rmW}\trans{\rmR}\\
+																		-\pinv{\rmW}\trans{\rmB}\pinv{\rmA}\trans{\rmL}
+																					+ \pinv{\rmW}\trans{\rmR}
+																							\end{bmatrix}.
+	\end{equation*}
+	Finally,
+	\begin{align*}
+			&\pinv{(\trans{\rmX}\rmX)}\trans{\rmX} \pinv{\rmK^{\haf}}\bfy = \\
+				&\begin{bmatrix}
+							\pinv{\rmA}\trans{\rmF}\pinv{\rmK}\bfy
+									+ \pinv{\rmA}\rmB\pinv{\rmW}\trans{\rmB}\pinv{\rmA}\trans{\rmF}\pinv{\rmK}\bfy
+											-\pinv{\rmA}\rmB\pinv{\rmW}\trans{\rmG}\pinv{\rmK}\bfy \\
+													\pinv{\rmW}\trans{\rmG}\pinv{\rmK}\bfy
+															-\pinv{\rmW}\trans{\rmB}\pinv{\rmA}\trans{\rmF}\pinv{\rmK}\bfy
+																\end{bmatrix}.
+	\end{align*}
+	A robust implementation of the above equation has to:
+	(i) associate matrix multiplications in such a way that a sequence of
+	$\pinv{\rmK}\dots\pinv{\rmK}$ is avoided;
+	and (ii) handle low-rank matrices $\rmW$.
+	A better association of matrix multiplications is given by
+	\begin{align*}
+			&\pinv{(\trans{\rmX}\rmX)}\trans{\rmX} \pinv{\rmK^{\haf}}\bfy = \\
+				&\begin{bmatrix}
+							\pinv{\rmA}\trans{\rmF}\pinv{\rmK}\bfy
+									+ \pinv{\rmA}\rmB\pinv{\rmW}(\trans{\rmB}\pinv{\rmA}\trans{\rmF}\pinv{\rmK}
+											\bfy-\trans{\rmG}\pinv{\rmK}\bfy) \\
+													\pinv{\rmW}(\trans{\rmG}\pinv{\rmK}\bfy
+															-\trans{\rmB}\pinv{\rmA}\trans{\rmF}\pinv{\rmK}\bfy)
+																\end{bmatrix}.
+	\end{align*}
+	$\pinv{\rmW}$ can be found via economic SVD decomposition.
+
+	\subsection{Batch scan}
+
+	Given a $n\times p$ covariate block $\rmG$, we want to quickly infer the
+	maximum likelihood estimations of $\bfalpha_i$ and $\beta_i$, for
+	$i \in \{1, \dots, p\}$ denoting the $\rmG$ columns.
+	We define a diagonal matrix
+	\begin{equation*}
+			\rmW = \dotd{\trans{\rmG}}{\pinv{\rmK}\rmG} -
+				       \dotd{\trans{\rmG}}{\pinv{\rmK}\rmF
+				       				 \pinv{(\trans{\rmL}\rmL)}\trans{\rmF}\pinv{\rmK}\rmG},
+	\end{equation*}
+	where $\dotd{\cdot}{\cdot}$ is a function that returns the diagonal elements
+	of a matrix multiplication with asymptotically lower computational cost and
+	memory use.
+
+	Clearly,
+	\begin{equation*}
+			\hat\bfbeta =
+				\begin{bmatrix}
+							\hat\beta_1 \\
+									\hat\beta_2 \\
+											\vdots \\
+													\hat\beta_p
+														\end{bmatrix}
+															= \pinv{\rmW}(\trans{\rmG}\pinv{\rmK}\bfy
+																-\trans{\rmB}\pinv{\rmA}\trans{\rmF}\pinv{\rmK}\bfy).
+	\end{equation*}
+	We know that
+	\begin{equation*}
+			\hat\bfalpha_i = \pinv{\rmA}\trans{\rmF}\pinv{\rmK}
+				(\bfy + (\rmG_i \rmW_i \trans{\rmG_i})
+					(\pinv{\rmK}\rmF\pinv{\rmA}\trans{\rmF}\pinv{\rmK}\bfy - \pinv{\rmK}\bfy)),
+	\end{equation*}
+	where $\rmG_i$ is the $i$-th column of $\rmG$.
+	For one-shot computation we do
+	\begin{equation*}
+			\hat\bfalpha = \pinv{\rmA}\trans{\rmF}\pinv{\rmK}
+				\paren{\bfy \oplus \rmG \otimes
+					\trans{\paren{(\rmW \trans{\rmG})
+						  (\pinv{\rmK}\rmF\pinv{\rmA}\trans{\rmF}\pinv{\rmK}\bfy
+						  		 - \pinv{\rmK}\bfy)}}},
+	\end{equation*}
+	where $\oplus$ and $\otimes$ are element-wise summation and multiplication
+	with broadcasting.
+
+	\section{Marginal likelihood}
+
+	Replace $\rmK$ by $\sigma^2\rmK$ in Eq.~\eqref{eq:lmm}.
+	Log of the marginal likelihood is given by
+	\begin{align*}
+		  \calL(\bfbeta, \sigma^2) &=
+		  	-\haf\big(\log(2\pi) - \log\det|\sigma^2\rmK| \\
+				&- \trans{(\bfy - \rmF\bfbeta)} \pinv{(\sigma^2\rmK)} (\bfy - \rmF\bfbeta)
+					\big).
+	\end{align*}
+	The maximum likelihood estimation and the restricted likelihood estimation of
+	$\sigma^2$ are give by
+	\begin{equation*}
+			\hat\sigma^2 = \frac{
+						\trans{(\bfy - \rmF\hat\bfbeta)}
+									\pinv{\rmK}
+											(\bfy - \rmF\hat\bfbeta)
+												}{k}
+	\end{equation*}
+	for $k = n$ and $k = n - p$, respectively.
+
+	\section{Likelihood ratio test}
+
+	Suppose that the null hyphotesis is given by
+	$\nullH: \bfbeta \in \Theta_0$ and the alternative one is given by
+	$\altH: \bfbeta \in \Theta_1$, where $\Theta_0$ is a subspace of $\Theta_1$,
+	and let $d$ be the difference between the $\Theta_1$ and $\Theta_0 $
+	dimensions.
+	Give that the null hyphotesis is the true one,
+	it follows from classical likelihood theory that
+	\begin{equation*}
+			\til{\chi}^2_d \sim -2\ln
+				\Bigg(
+						\frac{\calL(\hat\bfbeta_0, \hat\sigma_0^2)}
+								     {\calL(\hat\bfbeta_1, \hat\sigma_1^2)}
+								     	\Bigg),
+	\end{equation*}
+	asymptotically, for maximum likelihood parameter estimation\footnote{This is
+	not true for rescricted maximum likelihood estimation.}
+	subject to $\hat\bfbeta_0 \in \Theta_0$ and $\hat\bfbeta_1 \in \Theta_1$
+	\cite{verbeke2009linear}.
+
+	\printbibliography\
+
 \end{document}
+
